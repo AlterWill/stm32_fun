@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
 #include <WebSocketsClient.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -17,6 +16,7 @@
 #define OLED_SCL      22
 #define OLED_ADDR     0x3C
 
+// INMP441 I2S Pinout
 #define I2S_WS        25
 #define I2S_SCK       33
 #define I2S_SD        32
@@ -34,13 +34,14 @@ typedef struct {
 QueueHandle_t audioQueue = NULL;
 
 // ==============================================================================
-// WI-FI & WEBSOCKET CONFIGURATION
+// WI-FI & WEBSOCKET CONFIGURATION (DIRECT LOCAL LAN)
 // ==============================================================================
-const char* WIFI_SSID     = "A";
-const char* WIFI_PASSWORD = "rishon11";
+const char* WIFI_SSID     = "Times_4g";
+const char* WIFI_PASSWORD = "laMberTMaru2010#";
 
-const char* WS_HOST       = "endurable-hardwood-hundredth.ngrok-free.dev";
-const uint16_t WS_PORT    = 443;
+// Direct connection to Laptop Server on Times_4g network (no ngrok, no SSL)
+const char* WS_HOST       = "192.168.29.117";
+const uint16_t WS_PORT    = 3000;
 const char* WS_PATH       = "/ws/audio";
 
 // ==============================================================================
@@ -48,7 +49,6 @@ const char* WS_PATH       = "/ws/audio";
 // ==============================================================================
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 WebSocketsClient webSocket;
-WiFiClientSecure sslClient;
 
 volatile bool isWsConnected = false;
 String lastTranscription = "";
@@ -108,7 +108,7 @@ bool setupI2S() {
 }
 
 // ==============================================================================
-// CORE 0: READ I2S AUDIO AND PUSH TO QUEUE
+// CORE 0: READ I2S AUDIO AND PUSH TO THREAD-SAFE QUEUE
 // ==============================================================================
 void audioStreamingTask(void *pvParameters) {
   int32_t rawSamples[SAMPLES_PER_CHUNK];
@@ -136,19 +136,19 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
     case WStype_DISCONNECTED:
       isWsConnected = false;
       connectionStatus = "WS Disconnected";
-      Serial.println("[WSS] Disconnected!");
+      Serial.println("[WS] Disconnected!");
       if (audioQueue != NULL) xQueueReset(audioQueue);
       updateDisplay();
       break;
     case WStype_CONNECTED:
       isWsConnected = true;
-      connectionStatus = "Connected (WSS)";
-      Serial.printf("[WSS] Connected to: %s\n", payload);
+      connectionStatus = "Connected (WS)";
+      Serial.printf("[WS] Connected to: %s\n", payload);
       updateDisplay();
       break;
     case WStype_TEXT: {
       String text = String((char*)payload);
-      Serial.printf("[WSS Text]: %s\n", text.c_str());
+      Serial.printf("[WS Text]: %s\n", text.c_str());
       lastTranscription = text;
       updateDisplay();
       break;
@@ -163,7 +163,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n=== ESP32 Audio Streamer + STT (Ngrok WSS) ===");
+  Serial.println("\n=== ESP32 Audio Streamer + STT (Direct LAN) ===");
 
   Wire.begin(OLED_SDA, OLED_SCL);
   if (display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
@@ -191,36 +191,31 @@ void setup() {
     Serial.println("I2S setup FAILED!");
   }
 
+  // Audio queue between Core 0 (I2S task) and Core 1 (webSocket.loop())
   audioQueue = xQueueCreate(10, sizeof(AudioChunk_t));
 
-  // Configure explicit SSL Client settings
-  sslClient.setInsecure();            // Bypass certificate verification
-  sslClient.setHandshakeTimeout(10);  // Prevent handshake hangs
-
-  // Pass custom sslClient directly to WebSocketsClient
-  webSocket.beginSslWithCA(WS_HOST, WS_PORT, WS_PATH, nullptr, "");
-  
-  String headers = "Host: " + String(WS_HOST) + "\r\n";
-  headers += "User-Agent: ESP32\r\n";
-  headers += "ngrok-skip-browser-warning: 69420\r\n";
-  webSocket.setExtraHeaders(headers.c_str());
+  // Connect directly over plain WebSocket (fast, no SSL, no ngrok)
+  webSocket.begin(WS_HOST, WS_PORT, WS_PATH);
 
   webSocket.onEvent(webSocketEvent);
-  webSocket.setReconnectInterval(3000);
+  webSocket.setReconnectInterval(2000);
   webSocket.enableHeartbeat(15000, 4000, 2);
 
+  // Pin I2S reading task to Core 0
   xTaskCreatePinnedToCore(audioStreamingTask, "AudioTask", 8192, NULL, 1, &audioTaskHandle, 0);
 
-  connectionStatus = "Connecting WSS...";
+  connectionStatus = "Connecting WS...";
   updateDisplay();
 }
 
 // ==============================================================================
-// MAIN LOOP
+// MAIN LOOP (Runs on Core 1)
 // ==============================================================================
 void loop() {
+  // Service WebSocket protocol state, ping/pong heartbeats
   webSocket.loop();
 
+  // Dequeue and transmit audio frames sequentially on Core 1
   if (isWsConnected && audioQueue != NULL) {
     AudioChunk_t chunk;
     if (xQueueReceive(audioQueue, &chunk, 0) == pdTRUE) {
