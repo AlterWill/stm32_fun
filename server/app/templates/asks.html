@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Ask history · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Ask history</h1>
+    <p class="muted">{{ total }} question{% if total != 1 %}s{% endif %}</p>
+  </div>
+</div>
+
+{% if asks %}
+<div class="note-list">
+  {% for ask in asks %}
+  <article class="card ask-card">
+    <div class="note-card-head">
+      <span class="muted small">
+        {{ ask.created_at|localdt(tz) }}
+        {% if ask.language %} · {{ ask.language }}{% endif %}
+      </span>
+      <span class="badge badge-{{ ask.status }}">{{ ask.status }}</span>
+    </div>
+
+    {% if ask.question %}
+      <p class="question"><span class="label">Q</span> {{ ask.question }}</p>
+    {% endif %}
+    {% if ask.answer %}
+      <p class="answer"><span class="label">A</span> {{ ask.answer }}</p>
+    {% endif %}
+    {% if ask.details and ask.details != ask.answer %}
+      <p class="muted prewrap">{{ ask.details }}</p>
+    {% endif %}
+    {% if ask.failure_reason %}
+      <p class="error-text">{{ ask.failure_reason }}</p>
+    {% endif %}
+
+    <audio controls preload="none" src="/asks/{{ ask.id }}/audio"></audio>
+  </article>
+  {% endfor %}
+</div>
+
+{% if total_pages > 1 %}
+<nav class="pagination">
+  {% if page > 1 %}<a href="/asks?page={{ page - 1 }}">Previous</a>{% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a href="/asks?page={{ page + 1 }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="card empty">
+  <h2>No questions yet</h2>
+  <p>Ask the device a question and the transcript and answer will appear here.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+{% if user %}
+<header class="topbar">
+  <a class="brand" href="/notes">{{ app_name }}</a>
+  <nav>
+    <a href="/notes">Notes</a>
+    <a href="/asks">Ask history</a>
+    {% if user.is_admin %}
+      <a href="/admin/users">Users</a>
+      <a href="/admin/settings">Settings</a>
+    {% endif %}
+    <form method="post" action="/logout" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+      <button class="link-button" type="submit">Log out</button>
+    </form>
+  </nav>
+</header>
+{% endif %}
+<main class="container">
+  {% for message in flashes %}
+    <div class="flash flash-{{ message.category }}">{{ message.message }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<script src="/static/app.js" defer></script>
+</body>
+</html>

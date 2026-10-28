@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Settings</h1>
+    <p class="muted">Runtime options for the website and device API.</p>
+  </div>
+</div>
+
+<section class="card">
+  <h2>Runtime settings</h2>
+  <form method="post" action="/admin/settings" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+    <label>Timezone (IANA name)
+      <input name="timezone_name" value="{{ timezone_name }}" required>
+    </label>
+    <p class="muted small">
+      Used by <code>/api/time</code> and website timestamps. Default from .env: {{ default_timezone }}.
+    </p>
+
+    <label>Recent notes used as ask context
+      <input type="number" name="ask_context_notes" min="0" max="50" value="{{ ask_context_notes }}" required>
+    </label>
+    <p class="muted small">
+      How many recent completed notes Gemini receives for <code>/api/ask</code>. Set 0 to disable context.
+    </p>
+
+    <button class="primary" type="submit">Save settings</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Environment</h2>
+  <dl class="kv">
+    <dt>Gemini model</dt><dd>{{ gemini_model }}</dd>
+    <dt>Maximum audio</dt><dd>{{ max_audio_seconds }} seconds</dd>
+    <dt>Audio directory</dt><dd class="mono">{{ audio_dir }}</dd>
+    <dt>Database backend</dt><dd>{{ database_backend }}</dd>
+  </dl>
+  <p class="muted small">
+    Secrets and startup configuration live in <code>.env</code>. Restart the server after changing it.
+  </p>
+</section>
+{% endblock %}

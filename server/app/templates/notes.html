@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Notes · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Notes</h1>
+    <p class="muted">{{ total }} note{% if total != 1 %}s{% endif %}</p>
+  </div>
+</div>
+
+<div class="card device-bar"{% if active_command %} data-device-active{% endif %}>
+  <div>
+    <strong>ESP32 recorder</strong>
+    <p class="muted small">
+      {% if active_command %}
+        {% if active_command.status == "pending" %}
+          Waiting for the device to pick up the request...
+        {% else %}
+          Device is recording or uploading...
+        {% endif %}
+      {% else %}
+        Tap Record, then speak for 5 seconds. Audio is saved without AI.
+      {% endif %}
+    </p>
+  </div>
+  <form method="post" action="/device/record" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+    <button type="submit" class="primary"{% if active_command %} disabled{% endif %}>Record now</button>
+  </form>
+</div>
+
+<form class="search card" method="get" action="/notes">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search titles, transcripts, tasks, tags...">
+  <button type="submit">Search</button>
+  {% if q %}<a class="button-link" href="/notes">Clear</a>{% endif %}
+</form>
+
+{% if notes %}
+<div class="note-list">
+  {% for note in notes %}
+  <div class="card note-card">
+    <a class="note-card-link" href="/notes/{{ note.id }}">
+      <div class="note-card-head">
+        <span class="note-title">{{ note.title or "Untitled note" }}</span>
+        <span class="badge badge-{{ note.status }}">{{ note.status }}</span>
+      </div>
+      <div class="muted small">
+        {{ note.created_at|localdt(tz) }}
+        {% if note.duration_seconds %} · {{ note.duration_seconds|duration }}{% endif %}
+        {% if note.language %} · {{ note.language }}{% endif %}
+      </div>
+      {% if note.summary %}
+        <p class="clamp">{{ note.summary }}</p>
+      {% elif note.status == "recorded" %}
+        <p class="clamp muted">Audio saved. Use AI when you want a transcript and summary.</p>
+      {% elif note.status == "failed" %}
+        <p class="clamp error-text">{{ note.failure_reason or "Processing failed." }}</p>
+      {% elif note.status == "processing" %}
+        <p class="clamp muted">Transcribing and organizing...</p>
+      {% endif %}
+      {% if note.tags %}
+        <div class="chips">
+          {% for tag in note.tags %}<span class="chip">{{ tag }}</span>{% endfor %}
+        </div>
+      {% endif %}
+      {% if note.status == "processing" %}
+        <span class="poll-marker" data-poll-note="{{ note.id }}"></span>
+      {% endif %}
+    </a>
+    {% if note.id in audio_available_ids and (note.status == "recorded" or note.status == "failed") %}
+      <audio controls preload="none" src="/notes/{{ note.id }}/audio"></audio>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if total_pages > 1 %}
+<nav class="pagination">
+  {% if page > 1 %}
+    <a href="/notes?page={{ page - 1 }}{% if q %}&q={{ q|urlencode }}{% endif %}">Previous</a>
+  {% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="/notes?page={{ page + 1 }}{% if q %}&q={{ q|urlencode }}{% endif %}">Next</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="card empty">
+  {% if q %}
+    <h2>No matches</h2>
+    <p>Try a different search.</p>
+  {% else %}
+    <h2>No notes yet</h2>
+    <p>Record something on the device and it will appear here.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

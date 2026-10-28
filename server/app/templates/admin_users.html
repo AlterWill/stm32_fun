@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Users · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Users</h1>
+    <p class="muted">{{ users|length }} account{% if users|length != 1 %}s{% endif %}</p>
+  </div>
+</div>
+
+<section class="card">
+  <h2>Add user</h2>
+  <form method="post" action="/admin/users" class="grid-form">
+    <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+    <label>Username
+      <input name="username" required pattern="[A-Za-z0-9_.-]{3,32}" autocomplete="off">
+    </label>
+    <label>Password
+      <input type="password" name="password" required minlength="8" autocomplete="new-password">
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" name="is_admin" value="1"> Admin
+    </label>
+    <button class="primary" type="submit">Create user</button>
+  </form>
+</section>
+
+<div class="user-list">
+  {% for account in users %}
+  <section class="card user-card">
+    <div class="note-card-head">
+      <div>
+        <strong>{{ account.username }}</strong>
+        {% if account.id == user.id %}<span class="muted">(you)</span>{% endif %}
+      </div>
+      <span class="badge {% if account.is_admin %}badge-completed{% else %}badge-processing{% endif %}">
+        {% if account.is_admin %}admin{% else %}user{% endif %}
+      </span>
+    </div>
+    <p class="muted small">Created {{ account.created_at|localdt(tz) }}</p>
+
+    <div class="actions">
+      {% if account.id != user.id %}
+      <form method="post" action="/admin/users/{{ account.id }}/toggle-admin" class="inline">
+        <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+        <button class="secondary" type="submit">
+          {% if account.is_admin %}Remove admin{% else %}Make admin{% endif %}
+        </button>
+      </form>
+      {% endif %}
+
+      <form method="post" action="/admin/users/{{ account.id }}/password" class="inline">
+        <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+        <input type="password" name="password" placeholder="New password" minlength="8" required autocomplete="new-password">
+        <button class="secondary" type="submit">Reset password</button>
+      </form>
+
+      {% if account.id != user.id %}
+      <form method="post" action="/admin/users/{{ account.id }}/delete" class="inline" onsubmit="return confirm('Delete {{ account.username }}?');">
+        <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+        <button class="danger" type="submit">Delete</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

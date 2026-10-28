@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ note.title or "Note" }} · {{ app_name }}{% endblock %}
+{% block content %}
+<a class="back" href="/notes">← Notes</a>
+
+<article class="card detail">
+  <div class="detail-head">
+    <div>
+      <h1>{{ note.title or "Untitled note" }}</h1>
+      <p class="muted">
+        {{ note.created_at|localdt(tz) }}
+        · {{ note.duration_seconds|duration }}
+        {% if note.language %} · {{ note.language }}{% endif %}
+      </p>
+    </div>
+    <span class="badge badge-{{ note.status }}">{{ note.status }}</span>
+  </div>
+
+  {% if note.status == "recorded" %}
+    <div class="status-box recorded">
+      <strong>Audio recorded</strong>
+      <p>This note is saved. Use AI only if you want a transcript, summary, tasks, and tags.</p>
+      <form method="post" action="/notes/{{ note.id }}/retry" class="inline">
+        <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+        <button class="primary" type="submit">Generate summary with AI</button>
+      </form>
+    </div>
+  {% elif note.status == "processing" %}
+    <div class="status-box processing" data-poll-note="{{ note.id }}">
+      <span class="spinner"></span> Transcribing and organizing this note...
+    </div>
+  {% elif note.status == "failed" %}
+    <div class="status-box failed">
+      <strong>AI processing failed</strong>
+      <p>{{ note.failure_reason or "Unknown error." }}</p>
+      <form method="post" action="/notes/{{ note.id }}/retry" class="inline">
+        <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+        <button class="primary" type="submit">Retry with AI</button>
+      </form>
+    </div>
+  {% endif %}
+
+  {% if audio_available %}
+    <audio controls preload="none" src="/notes/{{ note.id }}/audio"></audio>
+  {% endif %}
+
+  {% if note.transcript %}
+  <section>
+    <h2>Transcript</h2>
+    <p class="prewrap">{{ note.transcript }}</p>
+  </section>
+  {% endif %}
+
+  {% if note.summary %}
+  <section>
+    <h2>Summary</h2>
+    <p class="prewrap">{{ note.summary }}</p>
+  </section>
+  {% endif %}
+
+  {% if note.key_points %}
+  <section>
+    <h2>Key points</h2>
+    <ul>
+      {% for point in note.key_points %}<li>{{ point }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if note.tasks %}
+  <section>
+    <h2>Tasks &amp; reminders</h2>
+    <ul class="tasks">
+      {% for task in note.tasks %}<li>{{ task }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% elif note.status == "completed" %}
+  <section>
+    <h2>Tasks &amp; reminders</h2>
+    <p class="muted">No tasks detected.</p>
+  </section>
+  {% endif %}
+
+  {% if note.tags %}
+  <section>
+    <h2>Tags</h2>
+    <div class="chips">
+      {% for tag in note.tags %}<span class="chip">{{ tag }}</span>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <footer class="detail-footer">
+    <form method="post" action="/notes/{{ note.id }}/delete" onsubmit="return confirm('Delete this note and its audio?');">
+      <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+      <button class="danger" type="submit">Delete note</button>
+    </form>
+  </footer>
+</article>
+{% endblock %}
