@@ -3,15 +3,23 @@
 {% block content %}
 <div class="page-head">
   <div>
+    <p class="eyebrow">VOICE CAPTURE</p>
     <h1>Notes</h1>
-    <p class="muted">{{ total }} note{% if total != 1 %}s{% endif %}</p>
+    <p class="muted">{{ total }} note{% if total != 1 %}s{% endif %} in your archive</p>
   </div>
 </div>
 
-<div class="card device-bar"{% if active_command %} data-device-active{% endif %}>
-  <div>
-    <strong>ESP32 recorder</strong>
-    <p class="muted small">
+<section class="recording-console"{% if active_command %} data-device-active{% endif %}>
+  <div class="recorder-status">
+    <span class="status-light{% if active_command %} is-live{% endif %}" aria-hidden="true"></span>
+    <div>
+      <p class="eyebrow">ESP32 RECORDER</p>
+      <strong>
+      {% if active_command %}
+        {% if active_command.status == "pending" %}Request queued{% else %}Recording in progress{% endif %}
+      {% else %}Ready to capture{% endif %}
+      </strong>
+      <p class="muted small">
       {% if active_command %}
         {% if active_command.status == "pending" %}
           Waiting for the device to pick up the request...
@@ -19,18 +27,24 @@
           Device is recording or uploading...
         {% endif %}
       {% else %}
-        Tap Record, then speak for 5 seconds. Audio is saved without AI.
+        Capture up to 60 seconds. Audio is saved before any AI processing.
       {% endif %}
-    </p>
+      </p>
+    </div>
   </div>
   <form method="post" action="/device/record" class="inline">
     <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
-    <button type="submit" class="primary"{% if active_command %} disabled{% endif %}>Record now</button>
+    <button type="submit" class="primary record-button"{% if active_command %} disabled{% endif %}>
+      <span aria-hidden="true">●</span> Record note
+    </button>
   </form>
-</div>
+</section>
 
 <form class="search card" method="get" action="/notes">
-  <input type="search" name="q" value="{{ q }}" placeholder="Search titles, transcripts, tasks, tags...">
+  <label class="search-field">
+    <span aria-hidden="true">⌕</span>
+    <input type="search" name="q" value="{{ q }}" placeholder="Search notes, transcripts, tasks, or tags" aria-label="Search notes">
+  </label>
   <button type="submit">Search</button>
   {% if q %}<a class="button-link" href="/notes">Clear</a>{% endif %}
 </form>
@@ -38,7 +52,7 @@
 {% if notes %}
 <div class="note-list">
   {% for note in notes %}
-  <div class="card note-card">
+  <article class="card note-card">
     <a class="note-card-link" href="/notes/{{ note.id }}">
       <div class="note-card-head">
         <span class="note-title">{{ note.title or "Untitled note" }}</span>
@@ -70,7 +84,7 @@
     {% if note.id in audio_available_ids and (note.status == "recorded" or note.status == "failed") %}
       <audio controls preload="none" src="/notes/{{ note.id }}/audio"></audio>
     {% endif %}
-  </div>
+  </article>
   {% endfor %}
 </div>
 

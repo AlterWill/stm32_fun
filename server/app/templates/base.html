@@ -9,10 +9,13 @@
 <body>
 {% if user %}
 <header class="topbar">
-  <a class="brand" href="/notes">{{ app_name }}</a>
-  <nav>
-    <a href="/notes">Notes</a>
-    <a href="/asks">Ask history</a>
+  <a class="brand" href="/notes" aria-label="{{ app_name }} notes">
+    <span class="brand-mark" aria-hidden="true">◉</span>
+    <span>{{ app_name }}</span>
+  </a>
+  <nav aria-label="Main navigation">
+    <a href="/notes"{% if request.url.path == "/notes" %} aria-current="page"{% endif %}>Notes</a>
+    <a href="/asks"{% if request.url.path == "/asks" %} aria-current="page"{% endif %}>Ask history</a>
     {% if user.is_admin %}
       <a href="/admin/users">Users</a>
       <a href="/admin/settings">Settings</a>

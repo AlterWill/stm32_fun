@@ -6,6 +6,7 @@
 <article class="card detail">
   <div class="detail-head">
     <div>
+      <p class="eyebrow">VOICE NOTE</p>
       <h1>{{ note.title or "Untitled note" }}</h1>
       <p class="muted">
         {{ note.created_at|localdt(tz) }}
@@ -46,21 +47,21 @@
 
   {% if note.transcript %}
   <section>
-    <h2>Transcript</h2>
+    <h2><span>01</span> Transcript</h2>
     <p class="prewrap">{{ note.transcript }}</p>
   </section>
   {% endif %}
 
   {% if note.summary %}
   <section>
-    <h2>Summary</h2>
+    <h2><span>02</span> Summary</h2>
     <p class="prewrap">{{ note.summary }}</p>
   </section>
   {% endif %}
 
   {% if note.key_points %}
   <section>
-    <h2>Key points</h2>
+    <h2><span>03</span> Key points</h2>
     <ul>
       {% for point in note.key_points %}<li>{{ point }}</li>{% endfor %}
     </ul>
@@ -69,21 +70,21 @@
 
   {% if note.tasks %}
   <section>
-    <h2>Tasks &amp; reminders</h2>
+    <h2><span>04</span> Tasks &amp; reminders</h2>
     <ul class="tasks">
       {% for task in note.tasks %}<li>{{ task }}</li>{% endfor %}
     </ul>
   </section>
   {% elif note.status == "completed" %}
   <section>
-    <h2>Tasks &amp; reminders</h2>
+    <h2><span>04</span> Tasks &amp; reminders</h2>
     <p class="muted">No tasks detected.</p>
   </section>
   {% endif %}
 
   {% if note.tags %}
   <section>
-    <h2>Tags</h2>
+    <h2><span>05</span> Tags</h2>
     <div class="chips">
       {% for tag in note.tags %}<span class="chip">{{ tag }}</span>{% endfor %}
     </div>

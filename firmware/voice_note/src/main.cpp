@@ -16,7 +16,11 @@
 #define I2S_PORT I2S_NUM_0
 
 #define SAMPLE_RATE 16000
-#define RECORD_SECONDS 5
+// Override with a PlatformIO build_flags definition, or change this default.
+// Audio is sent in HTTP chunks as it is sampled; this is not a RAM buffer.
+#ifndef RECORD_SECONDS
+#define RECORD_SECONDS 60
+#endif
 #define COMMAND_POLL_MS 5000
 #define STATUS_POLL_MS 2000
 
@@ -30,7 +34,8 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 bool displayReady = false;
-const size_t wavDataLength = SAMPLE_RATE * 2 * RECORD_SECONDS;
+constexpr size_t BYTES_PER_SECOND = SAMPLE_RATE * sizeof(int16_t);
+const size_t wavDataLength = BYTES_PER_SECOND * RECORD_SECONDS;
 
 bool pollStatusOnce(const String &noteId);
 

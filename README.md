@@ -119,19 +119,27 @@ request is marked complete.
 
 ## Recording length and data size
 
-The current firmware records **5 seconds** per trigger. At 16 kHz / 16-bit mono:
+The default firmware records **60 seconds** per trigger. It uploads each small
+PCM block immediately with chunked HTTP while it records, so recording length
+does not consume a large ESP32 RAM buffer. At 16 kHz / 16-bit mono:
 
 - 1 second = 32 KB
 - 1 minute = 1.92 MB
 - 5 minutes = 9.6 MB
 
-A 5-minute note is fine for the laptop server and the website, but it changes
-three things:
+A 5-minute note is fine for the laptop server and the website. To change the
+length, change the default in `firmware/voice_note/src/main.cpp`, or add
+`build_flags = -D RECORD_SECONDS=300` to `firmware/voice_note/platformio.ini`.
+Then make the server windows at least as long as the recording plus its upload
+time:
 
-1. `RECORD_SECONDS` in `firmware/voice_note/src/main.cpp`
-2. `MAX_AUDIO_SECONDS` in `server/.env` (currently 120)
-3. The command busy timeout, so the **Record now** button stays disabled for the
-   whole recording instead of re-enabling after 2 minutes
+1. `MAX_AUDIO_SECONDS` in `server/.env` (default: 300 seconds)
+2. `COMMAND_TTL_SECONDS` in `server/.env` (default: 600 seconds)
+
+The firmware's WAV header is written with the selected final length before the
+first packet, and the server accepts HTTP chunked uploads. This makes a
+one-minute recording about 1.92 MB and a five-minute recording about 9.6 MB
+without allocating either full recording on the ESP32.
 
 For Gemini, 5 minutes of WAV is about 12.8 MB as base64, under the 20 MB inline
 request limit. Ten minutes would require compression or the Gemini Files API.
