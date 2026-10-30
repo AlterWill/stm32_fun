@@ -15,7 +15,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme="auto"] {
     color-scheme: dark;
     --bg: #17201e;
     --surface: #202a27;
@@ -142,6 +142,33 @@ nav a[aria-current="page"] {
   background: var(--surface-2);
   color: var(--text);
   font-weight: 650;
+}
+
+.theme-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.18rem;
+  border: 1px solid var(--border);
+  border-radius: 0.62rem;
+  background: var(--surface-2);
+}
+
+.theme-switcher button {
+  min-height: 1.9rem;
+  padding: 0.25rem 0.45rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.theme-switcher button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(22, 32, 29, 0.12);
 }
 
 nav a:hover,
@@ -734,6 +761,10 @@ code {
 
   .topbar {
     padding: 0.55rem 0.75rem;
+  }
+
+  .theme-switcher {
+    order: 3;
   }
 
   h1 {

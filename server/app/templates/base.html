@@ -1,9 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <script>
+    try {
+      document.documentElement.dataset.theme = localStorage.getItem("voice-note-theme") || "light";
+    } catch (_) {}
+  </script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -20,6 +25,11 @@
       <a href="/admin/users">Users</a>
       <a href="/admin/settings">Settings</a>
     {% endif %}
+    <div class="theme-switcher" role="group" aria-label="Colour theme">
+      <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+      <button type="button" data-theme-choice="auto" aria-pressed="false">Auto</button>
+      <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+    </div>
     <form method="post" action="/logout" class="inline">
       <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
       <button class="link-button" type="submit">Log out</button>
