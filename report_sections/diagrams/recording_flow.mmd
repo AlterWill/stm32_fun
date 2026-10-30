@@ -1,0 +1,24 @@
+flowchart TD
+    A(["Initialize STM32 display and UART;<br/>initialize ESP32 UART"]) --> B["Connect Wi-Fi as needed<br/>and poll server"]
+    B --> C{"Record command<br/>received?"}
+    C -- No --> B
+    C -- Yes --> D["Open HTTP upload; send WAV header<br/>and START to STM32"]
+    D --> E["Start I2S and DMA; discard startup blocks;<br/>send HELLO"]
+    E --> F["Send numbered PCM frames over UART;<br/>ESP32 validates and streams HTTP chunks"]
+    F --> G{"Complete audio and<br/>valid END frame?"}
+    G -- Yes --> H["Finish HTTP upload and<br/>display server response"]
+    G -- No --> I["Abort transfer and<br/>report error"]
+    H --> B
+    I --> B
+    D -. "Connection or startup failure" .-> I
+    E -. "Audio startup failure" .-> I
+    classDef start fill:#ede9fe,stroke:#7c3aed,color:#2e1065,stroke-width:2px
+    classDef action fill:#dbeafe,stroke:#2563eb,color:#172554,stroke-width:2px
+    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px
+    classDef error fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:2px
+    class A start
+    class B,D,E,F action
+    class C,G decision
+    class H success
+    class I error

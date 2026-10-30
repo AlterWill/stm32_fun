@@ -1,0 +1,21 @@
+flowchart TD
+    A["Receive device WAV upload"] --> B{"API key and<br/>WAV valid?"}
+    B -- No --> C["Return error response"]
+    B -- Yes --> D["Save audio and note metadata;<br/>mark note recorded"]
+    D --> E["User can play recording<br/>in web interface"]
+    E --> F{"User requests<br/>AI processing?"}
+    F -- No --> G["Recording remains available"]
+    F -- Yes --> H["Send audio to Gemini"]
+    H --> I{"Processing successful?"}
+    I -- Yes --> J["Store transcript, summary<br/>and structured note fields"]
+    I -- No --> K["Store failure state;<br/>retain audio for retry"]
+    classDef action fill:#dbeafe,stroke:#2563eb,color:#172554,stroke-width:2px
+    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px
+    classDef error fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:2px
+    classDef ai fill:#cffafe,stroke:#0891b2,color:#164e63,stroke-width:2px
+    class A,D,E action
+    class B,F,I decision
+    class G,J success
+    class C,K error
+    class H ai

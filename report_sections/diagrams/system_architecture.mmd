@@ -1,0 +1,23 @@
+flowchart LR
+    User["User / web browser"] -->|"Record request"| Server["FastAPI server<br/>Note storage and web interface"]
+    Server -->|"Recording command"| ESP["ESP32<br/>Wi-Fi and HTTP"]
+    Mic["INMP441<br/>Digital microphone"] -->|"I2S audio"| STM["STM32 Nucleo-F446RE<br/>Audio capture and display control"]
+    STM -->|"PCM audio frames"| ESP
+    ESP -->|"Status and start commands"| STM
+    STM -->|"I2C status text"| OLED["SSD1306 OLED<br/>128 × 64"]
+    ESP -->|"Chunked WAV upload"| Server
+    Server -->|"Optional AI request"| AI["Gemini service"]
+    AI -->|"Transcription and structured note"| Server
+    Server -->|"Playback and note results"| User
+    classDef user fill:#ede9fe,stroke:#7c3aed,color:#2e1065,stroke-width:2px
+    classDef device fill:#dbeafe,stroke:#2563eb,color:#172554,stroke-width:2px
+    classDef input fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px
+    classDef display fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px
+    classDef server fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
+    classDef ai fill:#cffafe,stroke:#0891b2,color:#164e63,stroke-width:2px
+    class User user
+    class STM,ESP device
+    class Mic input
+    class OLED display
+    class Server server
+    class AI ai

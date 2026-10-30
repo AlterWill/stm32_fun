@@ -1,0 +1,80 @@
+% Requires: booktabs, tabularx. Include inside an existing report document.
+\chapter{Requirement Analysis}
+\label{ch:requirements}
+
+The proposed smart voice note maker combines an STM32-based audio and display unit with an ESP32 network interface and a server-hosted note management application. Speech is captured as digital audio and transferred to the server; transcription and structured note generation are requested separately through the web interface. The requirements below describe the STM32--ESP32 firmware configuration present in the repository. The repository also retains an earlier ESP32-only implementation.
+
+\section{Hardware Components Required}
+Table~\ref{tab:hardware} identifies the components required by the split implementation. Board quantities, exact module variants and the final power arrangement should be confirmed against the physical prototype.
+\begin{table}[htbp]
+\centering
+\caption{Hardware requirements for the STM32--ESP32 configuration}
+\label{tab:hardware}
+\small
+\begin{tabularx}{\textwidth}{@{}lX X@{}}
+\toprule
+Component & Configuration in project materials & Role \\
+\midrule
+STM32 board & Nucleo-F446RE; PlatformIO \texttt{nucleo\_f446re} target & I2S audio capture, UART transfer and OLED control. \\
+ESP32 board & PlatformIO \texttt{esp32dev} target; physical board variant to be verified & Wi-Fi, server polling and HTTP audio upload. \\
+Microphone & INMP441 digital I2S microphone, left channel selected & Converts speech to serial digital audio. \\
+Display & SSD1306 I2C OLED, 128 $\times$ 64 pixels, address \texttt{0x3C} & Displays text describing recording and connection status. \\
+Power and interconnections & Separate USB power for the two boards; common ground; connecting leads & Supplies power and carries I2S, I2C and UART signals. Exact construction to be verified. \\
+Host and network & Server host and Wi-Fi/LAN accessible to the device and web client & Runs the application, stores recordings and presents the browser interface. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{STM32 Nucleo-F446RE:} The controller acquires microphone data, transfers audio blocks and updates the local display.
+
+\textbf{INMP441 microphone:} The digital microphone provides the serial audio input. Its channel-selection connection determines the slot used by the capture code.
+
+\textbf{ESP32:} The network controller connects to Wi-Fi, retrieves recording commands and uploads the WAV stream to the server.
+
+\textbf{SSD1306 display:} The OLED presents brief messages for the local user, including recording and upload status.
+
+The microphone and display are assigned to the STM32. The STM32 uses I2S2 with direct memory access (DMA) for acquisition, I2C for the display and USART6 for the ESP32 link. The ESP32 provides connectivity to the server. The display code renders text and a separator line; animated facial expressions are not implemented in this split firmware. Compatibility of the particular OLED module with a 3.3~V supply and the availability of ESP32 GPIO16 and GPIO17 must be checked.
+
+\section{Software/Firmware Tools Used}
+\begin{table}[htbp]
+\centering
+\caption{Software and configuration requirements}
+\label{tab:software}
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Software & Purpose and configuration \\
+\midrule
+PlatformIO and Arduino framework & Separate \texttt{ststm32} and \texttt{espressif32} firmware projects; STM32 code also uses the HAL for I2S and DMA. \\
+Display libraries & Adafruit SSD1306 and Adafruit GFX in the STM32 project. \\
+ArduinoJson & Parses server responses in the ESP32 project. \\
+Python server & FastAPI, Uvicorn, SQLAlchemy, Jinja2 and other dependencies listed in \texttt{server/requirements.txt}. \\
+Storage & SQLite by default, with audio files stored on disk; a PostgreSQL configuration is also provided. \\
+AI service & Gemini through the server's Google Gen AI client; an API key is required for AI processing, but not for audio-only recording. \\
+Browser and network & Authenticated web interface for recording requests, playback and optional AI processing; device API key for device endpoints. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The ESP32 requires a private \texttt{secrets.h} containing Wi-Fi credentials, a server origin and the matching device API key. Server settings include the device key, session secret, administrator credentials, audio storage and optional Gemini configuration. The split client accepts a plain HTTP origin without a path. The API uses an API key, but plain HTTP does not encrypt the key or audio; the supplied documentation therefore confines this setup to a trusted local network or a protected connection.
+
+The general software sequence is as follows:
+\begin{enumerate}
+\item Initialize the controller interfaces and establish Wi-Fi connectivity.
+\item Receive a recording request through the server.
+\item Acquire audio on the STM32 and transfer it to the ESP32.
+\item Stream the WAV recording to the server and display the returned status.
+\item Store the recording for playback and, when requested, generate an AI note.
+\end{enumerate}
+
+\section{Feasibility Analysis}
+\subsection{Technical Feasibility}
+The implemented separation assigns audio capture and local display control to the STM32 and network operations to the ESP32. At 16~kHz, 16-bit mono, the audio payload rate is $16{,}000\times 2=32{,}000$ bytes/s. A 60~s recording therefore contains approximately 1.92~MB of PCM data, excluding the WAV header and transfer overhead. Streaming blocks through UART and chunked HTTP avoids keeping the entire recording in microcontroller memory. At the configured 921600~baud the nominal serial capacity is sufficient for this payload rate, subject to framing, processing and buffering. The implementation detects several transfer failures.
+
+The server, rather than the STM32, invokes Gemini when requested by the user. The STM32F446RE is not used to run a local Whisper model; the computationally intensive AI operation is assigned to the server and external service. Feasibility of AI processing consequently depends on the server configuration, service availability and network access.
+
+\subsection{Operational Feasibility}
+The web interface provides a record request, playback and an explicit AI-generation action. The local OLED reports brief text states. This workflow requires the device, server and network to be available; the split firmware provides neither offline recording nor automatic retry of an already delivered command. The current firmware does not initiate voice-question requests, although the server exposes an \texttt{/api/ask} endpoint.
+
+\subsection{Economic and Implementation Feasibility}
+The design uses development boards and existing software libraries, with a host computer providing storage and AI integration. No verified bill of materials, component prices, service charges or prototype expenditure is supplied; a quantitative cost analysis remains to be completed. The separate firmware projects support modular development and integration of the controller and network functions.
