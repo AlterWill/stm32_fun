@@ -1,0 +1,108 @@
+% Requires: booktabs, tabularx, tikz; TikZ libraries arrows.meta, positioning, shapes.geometric.
+% Insert after Section 4.2 in Chapter 4. Do not reset section counters here.
+\section{Component Layout / PCB Design}
+\label{sec:layout}
+The available project materials describe a development-board interconnection, rather than a verified custom printed circuit board. The intended functional arrangement places the INMP441 microphone and SSD1306 display on the STM32 side and connects the ESP32 as the network interface. Figure~\ref{fig:layout} is a functional arrangement only; it does not represent component positions, a PCB routing drawing or a completed assembly.
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=9mm and 12mm, every node/.style={font=\small}, block/.style={draw, rounded corners, align=center, minimum height=10mm, text width=26mm}, >=Stealth]
+\node[block] (mic) {INMP441\\microphone};
+\node[block, right=of mic] (stm) {STM32\\Nucleo-F446RE};
+\node[block, below=of stm] (oled) {SSD1306\\OLED};
+\node[block, right=of stm] (esp) {ESP32\\Wi-Fi};
+\node[block, right=of esp] (server) {Server and\\web interface};
+\draw[->] (mic) -- node[above] {I2S} (stm);
+\draw[<->] (stm) -- node[left] {I2C} (oled);
+\draw[<->] (stm) -- node[above] {UART} (esp);
+\draw[<->] (esp) -- node[above] {Wi-Fi} (server);
+\end{tikzpicture}
+\caption{Functional arrangement of the split controller design.}
+\label{fig:layout}
+\end{figure}
+
+The signal allocation in Table~\ref{tab:wiring} follows the STM32 and ESP32 firmware. The functional arrangement is presented independently of a physical PCB layout; a board drawing should be supplied if a custom PCB is used.
+\begin{table}[htbp]
+\centering
+\caption{Firmware-defined interconnections for the split design}
+\label{tab:wiring}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+Module signal & Connection & Function \\
+\midrule
+INMP441 SCK & STM32 PB10 & I2S2 clock \\
+INMP441 WS & STM32 PB12 & I2S2 word select \\
+INMP441 SD & STM32 PC3 & I2S2 serial data input \\
+INMP441 VDD, GND, L/R & 3.3~V, GND, GND & Supply, ground and left-channel selection \\
+OLED SDA, SCL & STM32 PB9, PB8 & I2C data and clock \\
+OLED VCC, GND & 3.3~V, GND & Supply; verify module compatibility \\
+STM32 PC6 TX & ESP32 GPIO16 RX & STM32-to-ESP32 UART \\
+STM32 PC7 RX & ESP32 GPIO17 TX & ESP32-to-STM32 UART \\
+Board grounds & Common GND & Shared signal reference \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The following layout considerations guide the integration of the modules:
+\begin{itemize}
+\item Keep the microphone accessible to the speaker and the display visible to the user.
+\item Identify the microphone, display and UART connections clearly to simplify inspection and maintenance.
+\item Maintain a common ground between the controllers and check supply polarity and module voltage compatibility.
+\item Arrange the leads so that the microphone and communication connections remain secure during operation.
+\item Preserve access to the USB connections used for programming, power and serial monitoring.
+\end{itemize}
+
+\section{Working Principle and Flowcharts}
+\label{sec:working}
+\subsection{Recording and Transfer}
+The STM32 initializes its serial link at 921600~baud and attempts to initialize the OLED. The ESP32 periodically connects to Wi-Fi as needed and polls the server for a pending record command at a nominal five-second interval. A user initiates this command through the web interface. Once a command is received, the ESP32 opens an HTTP connection, sends a WAV header using chunked transfer encoding and sends a \texttt{START} frame containing the recording duration to the STM32.
+
+The STM32 starts I2S2 in master receive mode at 16~kHz with 32-bit slots and circular DMA. It discards 40 startup blocks of 128 samples before sending \texttt{HELLO}. During capture, DMA callbacks place 128-sample blocks in a bounded queue; the code takes the most significant 16 bits of the selected left slot and sends little-endian PCM in numbered \texttt{AUDIO} frames. The ESP32 checks frame sequence and length and sends the received payload as HTTP chunks. After the expected samples, the STM32 sends \texttt{END}; the ESP32 checks its sequence, terminates the HTTP stream and reads the server response. Initialization failure, queue overrun, invalid or missing frames, timeout or network write failure can terminate the transfer. The OLED receives short status messages; the split ESP32 code does not poll the note status endpoint after upload.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=5mm, >=Stealth, every node/.style={font=\small}, step/.style={draw, rounded corners, align=center, text width=75mm, minimum height=7mm}, decision/.style={draw, diamond, aspect=2.5, align=center, inner sep=1pt, text width=35mm}]
+\node[step] (start) {Initialize STM32 display and UART; initialize ESP32 UART};
+\node[step, below=of start] (poll) {Connect Wi-Fi as needed; poll server for command};
+\node[decision, below=of poll] (cmd) {Record command?};
+\node[step, below=of cmd] (open) {Open HTTP upload; send WAV header and START};
+\node[step, below=of open] (capture) {Start I2S/DMA; discard startup blocks; send HELLO};
+\node[step, below=of capture] (stream) {Send numbered PCM frames; validate and stream chunks};
+\node[decision, below=of stream] (ok) {Complete and valid?};
+\node[step, below=of ok] (end) {Check END; finish upload; display server response};
+\node[step, right=14mm of ok, text width=30mm] (fail) {Abort / report error};
+\draw[->] (start)--(poll); \draw[->] (poll)--(cmd); \draw[->] (cmd)--node[right]{Yes}(open);
+\draw[->] (open)--(capture); \draw[->] (capture)--(stream); \draw[->] (stream)--(ok); \draw[->] (ok)--node[right]{Yes}(end);
+\draw[->] (ok)--node[above]{No}(fail); \draw[->] (cmd.west) -- ++(-1.2,0) node[left]{No} |- (poll.west);
+\end{tikzpicture}
+\caption{Principal recording path in the split firmware. Errors may also occur during connection or startup.}
+\label{fig:record-flow}
+\end{figure}
+
+The principal sequence can be summarized as follows:
+\begin{enumerate}
+\item Initialize the display and serial interfaces and connect the ESP32 to Wi-Fi.
+\item Poll for a record command created through the web interface.
+\item Open the upload, send the WAV header and request STM32 capture.
+\item Initialize I2S and DMA, discard startup samples and acknowledge readiness.
+\item Transfer numbered audio blocks to the ESP32 and stream them to the server.
+\item Check the end frame and server response, then display the resulting status.
+\item Return to command polling; report and abort the transfer if a capture or communication error occurs.
+\end{enumerate}
+
+\subsection{Server Storage and Optional AI Processing}
+The server authenticates the device, validates the WAV format and stores the audio and note metadata. A successful upload creates a \texttt{recorded} note and completes the associated command. The user may play the recording immediately. AI processing starts only when requested from the website; the server then submits the audio to Gemini for transcription and structured fields such as title, summary, key points, tasks and tags. Failed processing retains the recording for a later retry. The companion OLED reports the immediate upload response in the split implementation, while the web interface presents the AI results.
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=6mm, >=Stealth, every node/.style={font=\small}, step/.style={draw, rounded corners, align=center, text width=68mm, minimum height=8mm}, decision/.style={draw, diamond, aspect=2.7, align=center, inner sep=1pt, text width=35mm}]
+\node[step] (upload) {Receive, authenticate and validate WAV};
+\node[step, below=of upload] (save) {Store audio and metadata; return recorded status};
+\node[decision, below=of save] (ai) {User requests AI?};
+\node[step, below=of ai] (gem) {Send audio to Gemini and process response};
+\node[step, below=of gem] (result) {Store structured result or failure; retain audio};
+\draw[->] (upload)--(save); \draw[->] (save)--(ai); \draw[->] (ai)--node[right]{Yes}(gem); \draw[->] (gem)--(result);
+\draw[->] (ai.east)--++(1.4,0) node[right,align=left]{No: recording remains\\available for playback};
+\end{tikzpicture}
+\caption{Server-side note storage and optional AI processing.}
+\label{fig:server-flow}
+\end{figure}

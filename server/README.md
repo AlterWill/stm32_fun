@@ -90,7 +90,8 @@ resolved against the `server/` directory.
 | `LOG_LEVEL` | `INFO` | Python log level |
 | `DATABASE_URL` | `sqlite:///./data/notes.db` | SQLAlchemy database URL |
 | `AUDIO_DIR` | `./data/audio` | Root directory for WAV files |
-| `MAX_AUDIO_SECONDS` | `120` | Maximum accepted recording length |
+| `MAX_AUDIO_SECONDS` | `300` | Maximum accepted recording length |
+| `COMMAND_TTL_SECONDS` | `600` | Time a queued or live recording keeps the device busy |
 | `DEVICE_API_KEY` | required | Value for the `X-API-Key` header |
 | `GEMINI_API_KEY` | required for AI | Google Gemini API key |
 | `GEMINI_MODEL` | `gemini-3.5-flash` | Gemini model name |
@@ -425,9 +426,11 @@ The active firmware is the separate PlatformIO project at
 
 - Connects to Wi-Fi and shows status on a 128x64 SSD1306 OLED.
 - Polls `/api/device/command` every 5 seconds. It does not record on its own.
-- On a `record` command, streams 5 seconds of 16 kHz, 16-bit, mono WAV audio
-  directly to `/api/note` using chunked HTTP, so it does not need a 160 KB
-  recording buffer.
+- On a `record` command, streams 60 seconds of 16 kHz, 16-bit, mono WAV audio
+  directly to `/api/note` using chunked HTTP, so it does not need a 1.92 MB
+  recording buffer. Set `build_flags = -D RECORD_SECONDS=<seconds>` in
+  `platformio.ini` for a longer recording and set `MAX_AUDIO_SECONDS` plus
+  `COMMAND_TTL_SECONDS` high enough on the server.
 - Sends `X-Command-Id` so the website request is marked completed.
 - Polls `/api/notes/{id}/status` and shows the result on the OLED.
 

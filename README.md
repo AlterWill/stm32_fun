@@ -1,5 +1,46 @@
 # Voice Note Device
 
+## STM32 + ESP32 migration (hardware validation pending)
+
+The split firmware is in `firmware/stm32` and `firmware/esp32`; the existing
+`firmware/voice_note` project is retained as the original single-ESP32 version.
+The STM32 reads the INMP441 using I2S2/DMA and drives the display. The ESP32
+polls the existing server and streams a WAV upload. They communicate over a
+921600-baud framed UART link. These projects compile, but their combined
+operation and audio quality have not yet been verified on hardware.
+
+| Signal | Connection |
+| --- | --- |
+| Microphone SCK / WS / SD | PB10 (D6) / PB12 (CN10-16) / PC3 (CN7-37) |
+| Microphone VDD / GND / L/R | 3.3 V / GND / GND |
+| Display SDA / SCL | PB9 (D14) / PB8 (D15) |
+| Display supply | 3.3 V and GND; confirm module supports 3.3 V |
+| STM32 PC6 TX / PC7 RX | ESP32 GPIO16 RX / GPIO17 TX |
+| Boards | Common ground; each powered through its own USB |
+
+Confirm GPIO16/17 are available on the ESP32 board. The microphone datasheet
+recommends a 100 kΩ SD pull-down; check the breakout before adding one.
+
+Copy `firmware/esp32/include/secrets.example.h` to `secrets.h` in the same
+directory and set Wi-Fi, server URL and device API key. The URL must be a plain
+HTTP origin such as `http://192.168.1.50:3000`, without a path. Then build and
+flash each board independently:
+
+```bash
+pio run -d firmware/stm32
+pio run -d firmware/stm32 -t upload
+pio run -d firmware/esp32
+pio run -d firmware/esp32 -t upload
+```
+
+The default recording is 60 seconds. Override `RECORD_SECONDS` in the ESP32
+build flags, up to 300 seconds, and configure server limits accordingly.
+Audio frames contain sequence numbers and CRCs; a detected loss, audio overrun,
+or connection failure aborts the upload. There is no offline recording or
+automatic retry of a command already delivered by the server. USB serial logs
+run at 115200 baud on both boards. A first hardware test should verify the I2S
+clocks and a short recording before relying on the device.
+
 A phone-triggered voice recorder built around an ESP32, an INMP441 I2S
 microphone, and an SSD1306 OLED. The ESP32 streams a 16 kHz mono WAV to a local
 FastAPI server, which stores the audio, serves a web UI, and optionally sends the
@@ -119,19 +160,27 @@ request is marked complete.
 
 ## Recording length and data size
 
-The current firmware records **5 seconds** per trigger. At 16 kHz / 16-bit mono:
+The default firmware records **60 seconds** per trigger. It uploads each small
+PCM block immediately with chunked HTTP while it records, so recording length
+does not consume a large ESP32 RAM buffer. At 16 kHz / 16-bit mono:
 
 - 1 second = 32 KB
 - 1 minute = 1.92 MB
 - 5 minutes = 9.6 MB
 
-A 5-minute note is fine for the laptop server and the website, but it changes
-three things:
+A 5-minute note is fine for the laptop server and the website. To change the
+length, change the default in `firmware/voice_note/src/main.cpp`, or add
+`build_flags = -D RECORD_SECONDS=300` to `firmware/voice_note/platformio.ini`.
+Then make the server windows at least as long as the recording plus its upload
+time:
 
-1. `RECORD_SECONDS` in `firmware/voice_note/src/main.cpp`
-2. `MAX_AUDIO_SECONDS` in `server/.env` (currently 120)
-3. The command busy timeout, so the **Record now** button stays disabled for the
-   whole recording instead of re-enabling after 2 minutes
+1. `MAX_AUDIO_SECONDS` in `server/.env` (default: 300 seconds)
+2. `COMMAND_TTL_SECONDS` in `server/.env` (default: 600 seconds)
+
+The firmware's WAV header is written with the selected final length before the
+first packet, and the server accepts HTTP chunked uploads. This makes a
+one-minute recording about 1.92 MB and a five-minute recording about 9.6 MB
+without allocating either full recording on the ESP32.
 
 For Gemini, 5 minutes of WAV is about 12.8 MB as base64, under the 20 MB inline
 request limit. Ten minutes would require compression or the Gemini Files API.

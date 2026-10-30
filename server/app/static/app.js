@@ -1,4 +1,35 @@
 (() => {
+  const themeChoices = Array.from(document.querySelectorAll("[data-theme-choice]"));
+  const themeKey = "voice-note-theme";
+
+  const applyTheme = (theme, persist = false) => {
+    const validTheme = ["light", "auto", "dark"].includes(theme) ? theme : "light";
+    document.documentElement.dataset.theme = validTheme;
+    themeChoices.forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.themeChoice === validTheme));
+    });
+    if (persist) {
+      try {
+        localStorage.setItem(themeKey, validTheme);
+      } catch (_) {
+        // The page remains usable when storage is unavailable.
+      }
+    }
+  };
+
+  if (themeChoices.length > 0) {
+    let savedTheme = "light";
+    try {
+      savedTheme = localStorage.getItem(themeKey) || "light";
+    } catch (_) {
+      // Light is the intentional default.
+    }
+    applyTheme(savedTheme);
+    themeChoices.forEach((button) => {
+      button.addEventListener("click", () => applyTheme(button.dataset.themeChoice, true));
+    });
+  }
+
   const pollers = Array.from(document.querySelectorAll("[data-poll-note]"));
   const deviceActive = document.querySelector("[data-device-active]");
   if (pollers.length === 0 && !deviceActive) {

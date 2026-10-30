@@ -21,7 +21,11 @@ class Settings(BaseSettings):
 
     database_url: str = f"sqlite:///{(BASE_DIR / 'data' / 'notes.db').as_posix()}"
     audio_dir: Path = BASE_DIR / "data" / "audio"
-    max_audio_seconds: int = Field(default=120, ge=1, le=600)
+    # Five minutes of the device's 16 kHz / 16-bit / mono WAV is 9.6 MB.
+    max_audio_seconds: int = Field(default=300, ge=1, le=600)
+    # This applies both while a command is waiting for the device and while it
+    # is recording/uploading, so it must exceed the longest recording.
+    command_ttl_seconds: int = Field(default=600, ge=30, le=3600)
 
     device_api_key: str = ""
     gemini_api_key: str = ""

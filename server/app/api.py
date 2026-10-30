@@ -44,7 +44,10 @@ from .storage import resolve_audio, save_audio
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["device"])
-COMMAND_TTL = timedelta(seconds=120)
+# Keep a delivered command active for the complete recording and upload.  This
+# prevents the web UI from accepting another command halfway through a longer
+# live upload.
+COMMAND_TTL = timedelta(seconds=settings.command_ttl_seconds)
 
 
 @dataclass(frozen=True)

@@ -11,6 +11,7 @@ audio/
 
 .venv/
 venv/
+.venv-preview/
 env/
 
 __pycache__/
