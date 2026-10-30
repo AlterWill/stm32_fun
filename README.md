@@ -1,45 +1,41 @@
 # Voice Note Device
 
-## STM32 + ESP32 migration (hardware validation pending)
+## Active firmware: ESP32 + STM32 Blue Pill
 
-The split firmware is in `firmware/stm32` and `firmware/esp32`; the existing
-`firmware/voice_note` project is retained as the original single-ESP32 version.
-The STM32 reads the INMP441 using I2S2/DMA and drives the display. The ESP32
-polls the existing server and streams a WAV upload. They communicate over a
-921600-baud framed UART link. These projects compile, but their combined
-operation and audio quality have not yet been verified on hardware.
+The active firmware is the standalone pair in `firmware/esp32_bluepill/`:
+
+- `esp32/` handles Wi-Fi, INMP441 I2S capture, server polling, and chunked WAV
+  upload.
+- `bluepill/` handles the SSD1306 OLED, status LED, and optional buzzer.
 
 | Signal | Connection |
 | --- | --- |
-| Microphone SCK / WS / SD | PB10 (D6) / PB12 (CN10-16) / PC3 (CN7-37) |
-| Microphone VDD / GND / L/R | 3.3 V / GND / GND |
-| Display SDA / SCL | PB9 (D14) / PB8 (D15) |
-| Display supply | 3.3 V and GND; confirm module supports 3.3 V |
-| STM32 PC6 TX / PC7 RX | ESP32 GPIO16 RX / GPIO17 TX |
-| Boards | Common ground; each powered through its own USB |
+| INMP441 SCK / WS / SD | ESP32 GPIO33 / GPIO25 / GPIO32 |
+| INMP441 VDD / GND / L/R | 3.3 V / GND / GND |
+| OLED SDA / SCL | Blue Pill PB7 / PB6 (also supports PB9 / PB8) |
+| OLED address / supply | `0x3C` (or `0x3D`) / 3.3 V and GND |
+| ESP32 GPIO16 RX / GPIO18 TX | Blue Pill PA9 TX / PA10 RX |
+| Link | 115200 baud, 8N1 |
+| Boards | Common ground; power each through its own USB |
 
-Confirm GPIO16/17 are available on the ESP32 board. The microphone datasheet
-recommends a 100 kΩ SD pull-down; check the breakout before adding one.
-
-Copy `firmware/esp32/include/secrets.example.h` to `secrets.h` in the same
-directory and set Wi-Fi, server URL and device API key. The URL must be a plain
-HTTP origin such as `http://192.168.1.50:3000`, without a path. Then build and
-flash each board independently:
+Copy `firmware/esp32_bluepill/esp32/include/secrets.example.h` to `secrets.h`
+in the same directory and set Wi-Fi, server URL, and the `DEVICE_API_KEY` value
+from `server/.env`. The URL must be a plain HTTP origin such as
+`http://192.168.1.50:3000`, without a path. Then build and flash each board:
 
 ```bash
-pio run -d firmware/stm32
-pio run -d firmware/stm32 -t upload
-pio run -d firmware/esp32
-pio run -d firmware/esp32 -t upload
+pio run -d firmware/esp32_bluepill/esp32
+pio run -d firmware/esp32_bluepill/esp32 -t upload --upload-port /dev/ttyUSB0
+pio run -d firmware/esp32_bluepill/bluepill
+pio run -d firmware/esp32_bluepill/bluepill -t upload
 ```
 
-The default recording is 60 seconds. Override `RECORD_SECONDS` in the ESP32
-build flags, up to 300 seconds, and configure server limits accordingly.
-Audio frames contain sequence numbers and CRCs; a detected loss, audio overrun,
-or connection failure aborts the upload. There is no offline recording or
-automatic retry of a command already delivered by the server. USB serial logs
-run at 115200 baud on both boards. A first hardware test should verify the I2S
-clocks and a short recording before relying on the device.
+The default recording is 10 seconds. Override `RECORD_SECONDS` in the ESP32
+build flags, up to 300 seconds. See `firmware/esp32_bluepill/README.md` for the
+UART status protocol, wiring, testing, and troubleshooting. The old single-ESP32
+`firmware/voice_note` project remains as the original reference. The old
+Nucleo `firmware/stm32` project has been removed; `firmware/esp32` is retained
+only as a legacy reference and is not part of the Blue Pill build.
 
 A phone-triggered voice recorder built around an ESP32, an INMP441 I2S
 microphone, and an SSD1306 OLED. The ESP32 streams a 16 kHz mono WAV to a local
@@ -54,10 +50,17 @@ from the website.
 
 ```text
 .
-├── firmware/voice_note/     Active PlatformIO ESP32 firmware
-├── server/                  FastAPI server, web UI, API, test script
+├── firmware/voice_note/       Original single-ESP32 PlatformIO firmware
+├── firmware/esp32_bluepill/   Active ESP32 audio + Blue Pill HMI pair
+├── firmware/esp32/            Legacy ESP32 bridge (Nucleo build, unused)
+├── server/                    FastAPI server, web UI, API, test script
 └── README.md
 ```
+
+The active `firmware/esp32_bluepill/` pair uses the ESP32 for Wi-Fi, I2S audio
+capture, and chunked upload, and the STM32 Blue Pill for the SSD1306 OLED and
+status LED/buzzer. See `firmware/esp32_bluepill/README.md` for its wiring, UART
+status protocol, and build commands.
 
 `server/README.md` contains the full server, API, and deployment documentation.
 
