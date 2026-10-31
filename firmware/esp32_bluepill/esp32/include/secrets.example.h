@@ -8,7 +8,7 @@
 
 // Plain HTTP origin only, no path:
 //   http://192.168.1.50:3000
-#define SERVER_URL "http://192.168.1.50:3000"
+#define SERVER_URL "http://192.168.29.207:3000"
 
 // Must match DEVICE_API_KEY in server/.env.
 #define API_KEY "replace-with-DEVICE_API_KEY"

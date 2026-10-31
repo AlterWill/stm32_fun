@@ -4,7 +4,7 @@
 
 namespace {
 constexpr int kUartRxPin = 16;  // ESP32 RX2  <- Blue Pill PA9 (TX)
-constexpr int kUartTxPin = 18;  // ESP32 TX2  -> Blue Pill PA10 (RX)
+constexpr int kUartTxPin = 17;  // ESP32 TX2  -> Blue Pill PA10 (RX)
 constexpr uint32_t kHeartbeatMs = 5000;
 constexpr size_t kDetailMax = 47;
 
