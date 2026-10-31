@@ -11,10 +11,10 @@ constexpr int kPinData = 32;
 bool installed = false;
 
 int16_t convertSample(int32_t raw) {
-  // The INMP441 returns 24-bit two's-complement audio in a 32-bit slot.
-  // Dropping the low 16 bits leaves a signed 16-bit sample; clamp protects
-  // against a slightly over-range value.
-  int32_t value = raw >> 16;
+  // The INMP441 returns 24-bit audio in the high bits of a 32-bit slot.
+  // Shifting right by 11 (instead of 16) provides ~30 dB digital gain,
+  // bringing normal conversational speech to a clear, healthy volume.
+  int32_t value = raw >> 11;
   if (value > 32767) return 32767;
   if (value < -32768) return -32768;
   return static_cast<int16_t>(value);
